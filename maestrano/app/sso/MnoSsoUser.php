@@ -26,7 +26,7 @@ class MnoSsoUser extends MnoSsoBaseUser
     parent::__construct($saml_response,$session);
     
     // Assign new attributes
-    $this->connection = $opts['db_connection'];
+    //$this->connection = $opts['db_connection'];
   }
   
   
@@ -37,29 +37,23 @@ class MnoSsoUser extends MnoSsoBaseUser
    *
    * @return boolean whether the user was successfully set in session or not
    */
-  // protected function setInSession()
-  // {
-  //   // First set $conn variable (need global variable?)
-  //   $conn = $this->connection;
-  //   
-  //   $sel1 = $conn->query("SELECT ID,name,lastlogin FROM user WHERE ID = $this->local_id");
-  //   $chk = $sel1->fetch();
-  //   if ($chk["ID"] != "") {
-  //       $now = time();
-  //       
-  //       // Set session
-  //       $this->session['userid'] = $chk['ID'];
-  //       $this->session['username'] = stripslashes($chk['name']);
-  //       $this->session['lastlogin'] = $now;
-  //       
-  //       // Update last login timestamp
-  //       $upd1 = $conn->query("UPDATE user SET lastlogin = '$now' WHERE ID = $this->local_id");
-  //       
-  //       return true;
-  //   } else {
-  //       return false;
-  //   }
-  // }
+  protected function setInSession()
+  {
+    if ($this->local_id) {
+      // Get globals
+      global $user_cookie_site, $prefs, $userlib;
+      
+      $userId = $this->local_id;
+      $username = $userlib->get_user_login($userId);
+      $secret = $userlib->create_user_cookie($userId);
+			setcookie($user_cookie_site, $secret . '.' . $userId, $tikilib->now + $prefs['remembertime'], $prefs['cookie_path'], $prefs['cookie_domain']);
+      $this->session[$user_cookie_site] = $username;
+      
+      return true;
+    } else {
+      return false;
+    }
+  }
   
   
   /**
@@ -69,52 +63,122 @@ class MnoSsoUser extends MnoSsoBaseUser
    *
    * @return the ID of the user created, null otherwise
    */
-  // protected function createLocalUser()
-  // {
-  //   $lid = null;
-  //   
-  //   if ($this->accessScope() == 'private') {
-  //     // First set $conn variable (need global variable?)
-  //     $conn = $this->connection;
-  //     
-  //     // Create user
-  //     $lid = $this->connection->query("CREATE BLA.....");
-  //   }
-  //   
-  //   return $lid;
-  // }
+  protected function createLocalUser()
+  {
+    $lid = null;
+    
+    if ($this->accessScope() == 'private') {
+      // First build the local user attributes hash $conn variable (used internally by collabtive methods)
+      $user = $this->buildLocalUser();
+      
+      // Create the user
+      global $userlib;
+      $lid = $userlib->add_user($user['login'],$user['password'],$user['email']);
+      
+      // Assign user to group (only if admin - not required otherwise)
+      $role = $this->getRoleToAssign();
+      if ($role == 'Admins') {
+        $userlib->assign_user_to_group($user['login'], $role);
+      }
+      
+      // Get the id
+      $result = TikiLib::table('users_users')->fetchOne('userId', array('login' => $user['login']));
+      if ($result) {
+        $lid = intval($result);
+      }
+      
+    }
+    
+    return $lid;
+  }
+  
+  /**
+   * Return a user for creation
+   *
+   * @return a hash of attributes
+   */
+  protected function buildLocalUser()
+  {
+    $user = Array(
+      'login'    => $this->formatUniqueUsername(),
+      'password' => $this->generatePassword(),
+      'email'    => $this->email,
+    );
+    
+    return $user;
+  }
+  
+  /**
+   * Return the role to give to the user based on context
+   * If the user is the owner of the app or at least Admin
+   * for each organization, then it is given the role of 'Admin'.
+   * Return 'User' role otherwise
+   *
+   * @return the ID of the user created, null otherwise
+   */
+  public function getRoleToAssign() {
+    $default_role_user = 'Registered';
+    $default_role_admin = 'Admins';
+    
+    $role = $default_role_user; // User
+    
+    if ($this->app_owner) {
+      $role = $default_role_admin; // Admin
+    } else {
+      foreach ($this->organizations as $organization) {
+        if ($organization['role'] == 'Admin' || $organization['role'] == 'Super Admin') {
+          $role = $default_role_admin;
+        } else {
+          $role = $default_role_user;
+        }
+      }
+    }
+    
+    return $role;
+  }
+  
+  /**
+   * Return a unique username which is more user friendly
+   * that just using the maestrano uid
+   */
+  public function formatUniqueUsername() {
+    $s_name = preg_replace("/[^a-zA-Z0-9]+/", "", $this->name);
+    $s_surname = preg_replace("/[^a-zA-Z0-9]+/", "", $this->surname);
+    $formatted = $s_name . '_' . $s_surname . '_' . $this->uid;
+    return $formatted;
+  }
   
   /**
    * Get the ID of a local user via Maestrano UID lookup
    *
    * @return a user ID if found, null otherwise
    */
-  // protected function getLocalIdByUid()
-  // {
-  //   $result = $this->connection->query("SELECT ID FROM user WHERE mno_uid = {$this->connection->quote($this->uid)} LIMIT 1")->fetch();
-  //   
-  //   if ($result && $result['ID']) {
-  //     return $result['ID'];
-  //   }
-  //   
-  //   return null;
-  // }
+  protected function getLocalIdByUid()
+  {    
+    $result = TikiLib::table('users_users')->fetchOne('userId', array('mno_uid' => $this->uid));
+    
+    if ($result) {
+      return intval($result);
+    }
+    
+    return null;
+  }
   
   /**
    * Get the ID of a local user via email lookup
    *
    * @return a user ID if found, null otherwise
    */
-  // protected function getLocalIdByEmail()
-  // {
-  //   $result = $this->connection->query("SELECT ID FROM user WHERE email = {$this->connection->quote($this->email)} LIMIT 1")->fetch();
-  //   
-  //   if ($result && $result['ID']) {
-  //     return $result['ID'];
-  //   }
-  //   
-  //   return null;
-  // }
+  protected function getLocalIdByEmail()
+  {
+    $result = TikiLib::table('users_users')->fetchOne('userId', array('email' => $this->email));
+    
+    if ($result) {
+      return intval($result);
+    }
+    
+    return null;
+  }
   
   /**
    * Set all 'soft' details on the user (like name, surname, email)
@@ -122,28 +186,39 @@ class MnoSsoUser extends MnoSsoBaseUser
    *
    * @return boolean whether the user was synced or not
    */
-   // protected function syncLocalDetails()
-   // {
-   //   if($this->local_id) {
-   //     $upd = $this->connection->query("UPDATE user SET name = {$this->connection->quote($this->name . ' ' . $this->surname)}, email = {$this->connection->quote($this->email)} WHERE ID = $this->local_id");
-   //     return $upd;
-   //   }
-   //   
-   //   return false;
-   // }
+   protected function syncLocalDetails()
+   {
+     if($this->local_id) {
+       
+       $upd = TikiLib::table('users_users')->update(array(
+           'login' => $this->formatUniqueUsername(),
+           'email' => $this->email,
+         ), 
+         array('userId' => $this->local_id));
+       
+       return $upd;
+     }
+     
+     return false;
+   }
   
   /**
    * Set the Maestrano UID on a local user via id lookup
    *
    * @return a user ID if found, null otherwise
    */
-  // protected function setLocalUid()
-  // {
-  //   if($this->local_id) {
-  //     $upd = $this->connection->query("UPDATE user SET mno_uid = {$this->connection->quote($this->uid)} WHERE ID = $this->local_id");
-  //     return $upd;
-  //   }
-  //   
-  //   return false;
-  // }
+  protected function setLocalUid()
+  {
+    if($this->local_id) {
+      
+      $upd = TikiLib::table('users_users')->update(array(
+          'mno_uid' => $this->uid,
+        ), 
+        array('userId' => $this->local_id));
+      
+      return $upd;
+    }
+    
+    return false;
+  }
 }
