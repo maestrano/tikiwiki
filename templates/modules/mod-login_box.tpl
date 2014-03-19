@@ -50,32 +50,32 @@ if (jqueryTiki.no_cookie) {
 {if $prefs.feature_jquery_tooltips eq 'y'}
 	{assign var="closeText" value="{tr}Close{/tr}"}
 	{jq}
-if (jqueryTiki.tooltips) {
-	$('.login_link').cluetip({
-		activation: 'click',
-		arrows: false,
-		showTitle: false,
-		closePosition: 'bottom',
-		closeText: '{{$closeText}}',
-		cluetipClass: 'transparent',
-		dropShadow: false,
-		hideLocal: true,
-		local: true,
-		leftOffset: -100,
-		positionBy: 'topBottom',
-		sticky: true,
-		topOffset: 10,
-		fx: {
-			open: 'fadeIn', // can be 'show' or 'slideDown' or 'fadeIn'
-			openSpeed: '200'
-		},
-		width: 'auto',
-		onShow: function() {
-			$('#main').one('mousedown',function() {
-				$(document).trigger('hideCluetip');
-			})
-		}
-	});
+<!-- if (jqueryTiki.tooltips) {
+  $('.login_link').cluetip({
+    activation: 'click',
+    arrows: false,
+    showTitle: false,
+    closePosition: 'bottom',
+    closeText: '{{$closeText}}',
+    cluetipClass: 'transparent',
+    dropShadow: false,
+    hideLocal: true,
+    local: true,
+    leftOffset: -100,
+    positionBy: 'topBottom',
+    sticky: true,
+    topOffset: 10,
+    fx: {
+      open: 'fadeIn', // can be 'show' or 'slideDown' or 'fadeIn'
+      openSpeed: '200'
+    },
+    width: 'auto',
+    onShow: function() {
+      $('#main').one('mousedown',function() {
+        $(document).trigger('hideCluetip');
+      })
+    }
+  }); -->
 }
 	{/jq}
 {/if}
@@ -150,7 +150,7 @@ if (jqueryTiki.tooltips) {
 		{if $mode eq "popup"}
 			<div class="siteloginbar_popup">
 				<ul class="clearfix{if $prefs.feature_jquery_tooltips ne 'y'} cssmenu_horiz{/if}">
-					<li id="logout_link_{$module_logo_instance}"><div class="tabmark"><a href="tiki-login.php" class="login_link" onclick="return false;" rel=".siteloginbar_poppedup">{tr}Log in{/tr}</a></div>
+					<li id="logout_link_{$module_logo_instance}"><div class="tabmark"><a href="/maestrano/auth/saml/index.php" class="login_link" rel=".siteloginbar_poppedup">{tr}Log in{/tr}</a></div>
 						<ul class="siteloginbar_poppedup cbox">
 							<li class="tabcontent">
 								{capture assign="close_tags"}</li></ul></li></ul></div>{$close_tags}{/capture}

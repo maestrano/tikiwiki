@@ -121,6 +121,31 @@ if ( $prefs['login_multiple_forbidden'] == 'y' ) {
 
 require_once ('lib/setup/cookies.php');
 
+// Hook:Maestrano
+// Load Maestrano
+if (!defined('MAESTRANO_ROOT')) {
+  require_once dirname(__FILE__) . '/maestrano/app/init/base.php';
+  $maestrano = MaestranoService::getInstance();
+  
+  // Require authentication straight away if intranet
+  // mode enabled
+  if ($maestrano->isSsoIntranetEnabled()) {
+    if (!$maestrano->getSsoSession()->isValid()) {
+      header("Location: " . $maestrano->getSsoInitUrl());
+      exit;
+    }
+  }
+  
+  // Check Maestrano session is still valid if user is logged in
+  global $user;
+  if ($user) {
+    if (!$maestrano->getSsoSession()->isValid()) {
+      header("Location: " . $maestrano->getSsoInitUrl());
+      exit;
+    }
+  }
+}
+
 if ($prefs['mobile_feature'] === 'y') {
 	require_once ('lib/setup/mobile.php');	// needs to be before js_detect but after cookies
 } else {
